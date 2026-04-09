@@ -2,8 +2,58 @@
 
 import { Message } from "ai";
 import { cn } from "@/lib/utils";
-import { User, Bot, Loader2 } from "lucide-react";
+import { User, Bot, Loader2, FilePlus, FilePen, FilePlus2, Eye, Undo2, FileEdit, Trash2 } from "lucide-react";
 import { MarkdownRenderer } from "./MarkdownRenderer";
+import type { LucideIcon } from "lucide-react";
+
+// Translates cryptic AI robot speak into human feelings @gregorek
+function ToolInvocationCard({ tool }: { tool: { toolName: string; state: string; args: Record<string, string>; result?: unknown } }) {
+  const done = tool.state === "result";
+  const args = tool.args ?? {};
+  const command: string = args.command ?? "";
+
+  type ActionDef = { inProgress: string; done: string; Icon: LucideIcon };
+
+  const actionMap: Record<string, Record<string, ActionDef>> = {
+    str_replace_editor: {
+      create:     { inProgress: "Creating",      done: "Created",      Icon: FilePlus   },
+      str_replace: { inProgress: "Editing",      done: "Edited",       Icon: FilePen    },
+      insert:     { inProgress: "Inserting into", done: "Inserted into", Icon: FilePlus2 },
+      view:       { inProgress: "Reading",       done: "Read",         Icon: Eye        },
+      undo_edit:  { inProgress: "Reverting",     done: "Reverted",     Icon: Undo2      },
+    },
+    file_manager: {
+      rename: { inProgress: "Renaming", done: "Renamed", Icon: FileEdit },
+      delete: { inProgress: "Deleting", done: "Deleted", Icon: Trash2   },
+    },
+  };
+
+  const action = actionMap[tool.toolName]?.[command];
+  const label = action ? (done ? action.done : action.inProgress) : tool.toolName;
+  const Icon = action?.Icon;
+  const path: string = args.path ?? "";
+  const newPath: string = args.new_path ?? "";
+
+  return (
+    <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-neutral-50 rounded-lg border border-neutral-200 text-xs w-fit">
+      {done && Icon ? (
+        <Icon className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+      ) : (
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500 flex-shrink-0" />
+      )}
+      <span className="text-neutral-500 font-medium">{label}</span>
+      {command === "rename" && newPath ? (
+        <>
+          <span className="font-mono text-neutral-800">{path}</span>
+          <span className="text-neutral-400">→</span>
+          <span className="font-mono text-neutral-800">{newPath}</span>
+        </>
+      ) : path ? (
+        <span className="font-mono text-neutral-800">{path}</span>
+      ) : null}
+    </div>
+  );
+}
 
 interface MessageListProps {
   messages: Message[];
@@ -75,22 +125,7 @@ export function MessageList({ messages, isLoading }: MessageListProps) {
                               </div>
                             );
                           case "tool-invocation":
-                            const tool = part.toolInvocation;
-                            return (
-                              <div key={partIndex} className="inline-flex items-center gap-2 mt-2 px-3 py-1.5 bg-neutral-50 rounded-lg text-xs font-mono border border-neutral-200">
-                                {tool.state === "result" && tool.result ? (
-                                  <>
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                    <span className="text-neutral-700">{tool.toolName}</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Loader2 className="w-3 h-3 animate-spin text-blue-600" />
-                                    <span className="text-neutral-700">{tool.toolName}</span>
-                                  </>
-                                )}
-                              </div>
-                            );
+                            return <ToolInvocationCard key={partIndex} tool={part.toolInvocation as Parameters<typeof ToolInvocationCard>[0]["tool"]} />;
                           case "source":
                             return (
                               <div key={partIndex} className="mt-2 text-xs text-neutral-500">
